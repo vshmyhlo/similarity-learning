@@ -4,7 +4,7 @@ from __future__ import division
 import torch
 
 
-def triplet_loss(input, target, margin=0.3):
+def triplet_loss(input, target, margin=1.):
     distances = pairwise_distances(input)
 
     mask_pos = build_pos_mask(target)
@@ -14,8 +14,8 @@ def triplet_loss(input, target, margin=0.3):
     max_neg_dist = distances.max(dim=1, keepdim=True)[0]
     hardest_neg_dist = (distances + max_neg_dist * (~mask_neg).float()).min(dim=1)[0]
 
-    loss = torch.log1p(torch.exp(hardest_pos_dist - hardest_neg_dist))
-    # loss = torch.clamp(hardest_pos_dist - hardest_neg_dist + margin, min=0)
+    # loss = torch.log1p(torch.exp(hardest_pos_dist - hardest_neg_dist))
+    loss = torch.clamp(hardest_pos_dist - hardest_neg_dist + margin, min=0)
 
     return loss
 
