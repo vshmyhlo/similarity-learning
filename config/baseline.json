@@ -1,0 +1,14 @@
+{
+    "seed": 42,
+    "epochs": 30,
+    "train": {
+        "batch_size": 32,
+        "opt": {
+            "type": "sgd",
+            "lr": 1e-3
+        }
+    },
+    "eval": {
+        "batch_size": 32
+    }
+}
