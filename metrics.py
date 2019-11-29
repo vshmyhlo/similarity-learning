@@ -5,7 +5,11 @@ def rank_k(eq, k):
     return torch.any(eq[:, :k], 1)
 
 
-def mean_average_precision(eq):
+def cmc(eq, k):
+    return eq[:, :k].float().cumsum(1) > 0.
+
+
+def map(eq):
     eq = eq.float()
 
     cs = eq.cumsum(1)

@@ -4,8 +4,8 @@
     "train": {
         "batch_size": 32,
         "opt": {
-            "type": "sgd",
-            "lr": 1e-3
+            "type": "adam",
+            "lr": 1e-4
         }
     },
     "eval": {

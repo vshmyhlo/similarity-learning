@@ -15,12 +15,13 @@ from tqdm import tqdm
 
 import data_builders.market1501
 from losses import triplet_loss
-from metrics import rank_k, mean_average_precision
+from metrics import rank_k, map, cmc as compute_cmc
 from models.resnet import ResNet
 from samplers import RandomIdentityBatchSampler
 # TODO: visualize ranks
 # TODO: remove logging
 from transforms import CheckSize
+from utils import visualize_ranks, cmc_curve_plot, distance_plot
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
 
@@ -134,6 +135,7 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
         metrics = {
             'loss': Mean(),
             'mAP': Mean(),
+            'cmc': Mean(0),
             'rank/1': Mean(),
             'rank/5': Mean(),
             'rank/10': Mean(),
@@ -154,27 +156,45 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
                 metrics['loss'].update(loss.data.cpu().numpy())
 
                 distances = compute_distance(features, gallery_features)
-                metric, sort_indices = compute_metric(distances, ids, gallery_ids)
+                metric, (sort_indices, eq) = compute_metric(distances, ids, gallery_ids)
                 for k in metric:
                     metrics[k].update(metric[k].data.cpu().numpy())
 
-                visualization_samples.append((images[0], sort_indices[0]))
+                visualization_samples.append((images[0], distances[0], sort_indices[0], eq[0]))
                 visualization_samples = visualization_samples[:32]
 
             metrics = {k: metrics[k].compute_and_reset() for k in metrics}
+            cmc = metrics['cmc']
+            del metrics['cmc']
             logging.info('[EPOCH {}][EVAL] {}'.format(
                 epoch, ', '.join('{}: {:.4f}'.format(k, metrics[k]) for k in metrics)))
             for k in metrics:
                 eval_writer.add_scalar(k, metrics[k], global_step=epoch)
 
-            images, sort_indices = [torch.stack(x, 0) for x in zip(*visualization_samples[:32])]
+            images, distances, sort_indices, eq = [torch.stack(x, 0) for x in zip(*visualization_samples[:32])]
+            eval_writer.add_histogram(
+                'distance_pos',
+                distances[eq],
+                global_step=epoch)
+            eval_writer.add_histogram(
+                'distance_neg',
+                distances[~eq],
+                global_step=epoch)
+            eval_writer.add_figure(
+                'cmc',
+                cmc_curve_plot(cmc),
+                global_step=epoch)
+            eval_writer.add_figure(
+                'distance',
+                distance_plot(distances, eq),
+                global_step=epoch)
             eval_writer.add_image(
                 'images',
-                visualize_ranks(images, gallery_images, sort_indices, k=10),
+                visualize_ranks(images, gallery_images, sort_indices, eq, k=10),
                 global_step=epoch)
 
             del images, features, gallery_images, gallery_features
-           
+
         # saver.save(os.path.join(experiment_path, 'model.pth'))
         # if metrics['wer'] < best_score:
         #     best_score = metrics['wer']
@@ -198,24 +218,8 @@ def build_scheduler(optimizer, epoch_size, config):
     return scheduler
 
 
-def visualize_ranks(query_images, gallery_images, sort_indices, k):
-    gallery_images = gallery_images[sort_indices[:, :k]]
-
-    gallery_images = gallery_images.permute(0, 2, 3, 1, 4)
-    b, c, h, n, w = gallery_images.size()
-    gallery_images = gallery_images.contiguous().view(b, c, h, n * w)
-
-    images = torch.cat([query_images, gallery_images], 3)
-    images = images.permute(1, 0, 2, 3)
-    c, n, h, w = images.size()
-    images = images.contiguous().view(c, n * h, w)
-
-    return images
-
-
 def compute_loss(input, target):
     loss = triplet_loss(input, target)
-    # loss = lsep_loss(input, target)
 
     return loss
 
@@ -226,13 +230,14 @@ def compute_metric(distances, query_ids, gallery_ids):
     eq = query_ids.unsqueeze(1) == sorted_gallery_ids
 
     metric = {
-        'mAP': mean_average_precision(eq),
+        'mAP': map(eq),
+        'cmc': compute_cmc(eq, 10),
         'rank/1': rank_k(eq, 1),
         'rank/5': rank_k(eq, 5),
         'rank/10': rank_k(eq, 10),
     }
 
-    return metric, sort_indices
+    return metric, (sort_indices, eq)
 
 
 def compute_distance(a, b):
