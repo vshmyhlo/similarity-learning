@@ -173,6 +173,8 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
                 visualize_ranks(images, gallery_images, sort_indices, k=10),
                 global_step=epoch)
 
+            del images, features, gallery_images, gallery_features
+           
         # saver.save(os.path.join(experiment_path, 'model.pth'))
         # if metrics['wer'] < best_score:
         #     best_score = metrics['wer']
