@@ -1,4 +1,3 @@
-import glob
 import os
 
 import pandas as pd
@@ -21,7 +20,6 @@ class Dataset(torch.utils.data.Dataset):
         input = {
             'image': image,
             'id': row['id'],
-            'cam': row['cam'],
         }
 
         if self.transform is not None:
@@ -52,29 +50,46 @@ class DatasetBuilder(object):
 
 
 def load_data(path):
-    train = load_folder(os.path.join(path, 'bounding_box_train'))
-    query = load_folder(os.path.join(path, 'query'))
-    gallery = load_folder(os.path.join(path, 'bounding_box_test'))
+    train = load_split(os.path.join(path, 'peopleDevTrain.txt'))
+    test = load_split(os.path.join(path, 'peopleDevTest.txt'))
+
+    train['path'] = path
+    test['path'] = path
+
+    train, = flatten_and_split(train, 1)
+    query, gallery = flatten_and_split(test, 2)
 
     encode_category([train], 'id')
     encode_category([query, gallery], 'id')
-    encode_category([train, query, gallery], 'cam')
 
     return train, query, gallery
 
 
-def load_folder(path):
-    data = pd.DataFrame({
-        'path': sorted(glob.glob(os.path.join(path, '*.jpg'))),
-    })
-
-    meta = data['path'].apply(lambda x: os.path.split(x)[1].split('_')[:2])
-
-    data['id'], data['cam'] = zip(*meta)
-    data['id'] = data['id'].apply(lambda x: int(x))
-    data['cam'] = data['cam'].apply(lambda x: int(x[1]))
-
-    data = data[data['id'] != -1]
-    data.index = range(len(data))
+def load_split(path):
+    with open(path) as f:
+        next(f)
+        data = pd.read_csv(f, sep='\s+', names=['id', 'num_images'])
+        data = data[data['num_images'] > 1]
 
     return data
+
+
+def flatten_and_split(data, num_splits):
+    splits = [[] for _ in range(num_splits)]
+
+    for _, row in data.iterrows():
+        group = pd.DataFrame({
+            'path': [
+                os.path.join(row['path'], row['id'], '{}_{:04}.jpg'.format(row['id'], i + 1))
+                for i in range(row['num_images'])],
+        })
+        group['id'] = row['id']
+
+        for i, split in enumerate(splits):
+            split.append(group.iloc[i::num_splits])
+
+    splits = [pd.concat(split) for split in splits]
+    for split in splits:
+        split.index = range(len(split))
+
+    return splits

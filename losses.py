@@ -5,7 +5,7 @@ import torch
 
 
 def triplet_loss(input, target, margin=1.):
-    distances = pairwise_distances(input)
+    distances = pairwise_distances(input, input)
 
     mask_pos = build_pos_mask(target)
     hardest_pos_dist = (distances * mask_pos.float()).max(dim=1)[0]
@@ -21,7 +21,7 @@ def triplet_loss(input, target, margin=1.):
 
 
 def lsep_loss(input, target):
-    distances = pairwise_distances(input)
+    distances = pairwise_distances(input, input)
 
     mask_pos = build_pos_mask(target)
     mask_neg = build_neg_mask(target)
@@ -37,11 +37,9 @@ def lsep_loss(input, target):
     return loss
 
 
-def pairwise_distances(input):
-    delta = input.unsqueeze(0) - input.unsqueeze(1)
-    dist = torch.norm(delta, 2, 2)
-
-    return dist
+def pairwise_distances(a, b):
+    delta = a.unsqueeze(1) - b.unsqueeze(0)
+    return torch.norm(delta, 2, 2)
 
 
 def build_pos_mask(target):

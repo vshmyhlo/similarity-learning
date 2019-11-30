@@ -1,6 +1,8 @@
 import numpy as np
+import pandas as pd
 import torch
 from matplotlib import pyplot as plt
+from sklearn.preprocessing import LabelEncoder
 
 
 class Saver(object):
@@ -92,3 +94,10 @@ def distance_plot(distances, eq):
     plt.hist(distances[~eq].data.cpu().numpy(), **kwargs)
 
     return fig
+
+
+def encode_category(dfs, column):
+    le = LabelEncoder()
+    le.fit(pd.concat([df[column] for df in dfs]))
+    for df in dfs:
+        df[column] = le.transform(df[column])

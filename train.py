@@ -14,6 +14,7 @@ from ticpfptp.torch import fix_seed
 from tqdm import tqdm
 
 import data_builders.market1501
+from losses import pairwise_distances
 from losses import triplet_loss
 from metrics import rank_k, map, cmc as compute_cmc
 from models.resnet import ResNet
@@ -155,7 +156,7 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
                 loss = compute_loss(features, ids)
                 metrics['loss'].update(loss.data.cpu().numpy())
 
-                distances = compute_distance(features, gallery_features)
+                distances = pairwise_distances(features, gallery_features)
                 metric, (sort_indices, eq) = compute_metric(distances, ids, gallery_ids)
                 for k in metric:
                     metrics[k].update(metric[k].data.cpu().numpy())
@@ -238,10 +239,6 @@ def compute_metric(distances, query_ids, gallery_ids):
     }
 
     return metric, (sort_indices, eq)
-
-
-def compute_distance(a, b):
-    return torch.norm(a.unsqueeze(1) - b.unsqueeze(0), 2, 2)
 
 
 def collect_features(data_loader, model):
