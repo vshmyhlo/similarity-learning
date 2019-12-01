@@ -5,16 +5,6 @@ from matplotlib import pyplot as plt
 from sklearn.preprocessing import LabelEncoder
 
 
-class Saver(object):
-    def __init__(self, model, optimizer, scheduler):
-        self.model = model
-        self.optimizer = optimizer
-        self.scheduler = scheduler
-
-    def save(self, path, scheduler):
-        pass
-
-
 def visualize_ranks(query_images, gallery_images, sort_indices, eq, k):
     def denormalize(images):
         return (images - min_pixel) / (max_pixel - min_pixel)

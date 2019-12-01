@@ -8,6 +8,7 @@ import torch.utils.data
 import torchvision.transforms as T
 from all_the_tools.config import Config
 from all_the_tools.metrics import Mean
+from all_the_tools.torch.utils import Saver
 from all_the_tools.transforms import ApplyTo, Extract
 from tensorboardX import SummaryWriter
 from ticpfptp.torch import fix_seed
@@ -74,6 +75,13 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
     optimizer = build_optimizer(model.parameters(), config)
     scheduler = build_scheduler(optimizer, len(data_loaders['train']), config)
 
+    saver = Saver({'model': model, 'optimizer': optimizer, 'scheduler': scheduler})
+    start_epoch = 0
+    if restore_path is not None:
+        saver.load(restore_path, keys=['model'])
+    if os.path.exists(os.path.join(experiment_path, 'checkpoint.pth')):
+        start_epoch = saver.load(os.path.join(experiment_path, 'checkpoint.pth'))
+
     # ==================================================================================================================
     # main loop
 
@@ -81,7 +89,7 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
     eval_writer = SummaryWriter(os.path.join(experiment_path, 'eval'))
     # best_score = 0
 
-    for epoch in range(config.epochs):
+    for epoch in range(start_epoch, config.epochs):
         if epoch % 10 == 0:
             logging.info(experiment_path)
 
@@ -126,6 +134,7 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
             'rank/1': Mean(),
             'rank/5': Mean(),
             'rank/10': Mean(),
+            'rank/20': Mean(),
         }
 
         visualization_samples = []
@@ -182,7 +191,7 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
 
             del images, features, gallery_images, gallery_features
 
-        # saver.save(os.path.join(experiment_path, 'model.pth'))
+        saver.save(os.path.join(experiment_path, 'checkpoint.pth'), epoch=epoch + 1)
         # if metrics['wer'] < best_score:
         #     best_score = metrics['wer']
         #     save_model(model_to_save, mkdir(os.path.join(experiment_path, 'best')))
@@ -270,10 +279,11 @@ def compute_metric(distances, query_ids, gallery_ids):
 
     metric = {
         'mAP': map(eq),
-        'cmc': compute_cmc(eq, 10),
+        'cmc': compute_cmc(eq, 20),
         'rank/1': rank_k(eq, 1),
         'rank/5': rank_k(eq, 5),
         'rank/10': rank_k(eq, 10),
+        'rank/20': rank_k(eq, 20),
     }
 
     return metric, (sort_indices, eq)
