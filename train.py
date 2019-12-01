@@ -13,16 +13,22 @@ from tensorboardX import SummaryWriter
 from ticpfptp.torch import fix_seed
 from tqdm import tqdm
 
-import data_builders.market1501
+import dataset_builders
 from losses import pairwise_distances
 from losses import triplet_loss
 from metrics import rank_k, map, cmc as compute_cmc
 from models.resnet import ResNet
 from samplers import RandomIdentityBatchSampler
-# TODO: visualize ranks
-# TODO: remove logging
 from transforms import CheckSize
 from utils import visualize_ranks, cmc_curve_plot, distance_plot
+
+# TODO: remove logging
+# TODO: compute vric mean box
+# TODO: cmc rank larger K
+# TODO: spatial transformer network
+# TODO: leave identities with 2+ samples
+# TODO: learn class centers with triplet loss
+
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
 
@@ -38,34 +44,14 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
     config = Config.from_json(config_path)
     fix_seed(config.seed)
 
-    train_transform = T.Compose([
-        ApplyTo('image', T.Compose([
-            CheckSize((128, 64)),
+    train_transform, eval_transform = build_transforms(config)
 
-            # T.RandomCrop((96, 48)),
-            # T.Resize((128, 64)),
+    dataset_builders = build_dataset_builder(config, dataset_path)
 
-            T.RandomHorizontalFlip(),
-
-            T.ColorJitter(0.1, 0.1, 0.1),
-
-            T.ToTensor(),
-        ])),
-        Extract(['image', 'id'])
-    ])
-    eval_transform = T.Compose([
-        ApplyTo('image', T.Compose([
-            CheckSize((128, 64)),
-            T.ToTensor()
-        ])),
-        Extract(['image', 'id'])
-    ])
-
-    dataset_builder = data_builders.market1501.DatasetBuilder(dataset_path)
     datasets = {
-        'train': dataset_builder.build_train(transform=train_transform),
-        'query': dataset_builder.build_query(transform=eval_transform),
-        'gallery': dataset_builder.build_gallery(transform=eval_transform),
+        'train': dataset_builders.build_train(transform=train_transform),
+        'query': dataset_builders.build_query(transform=eval_transform),
+        'gallery': dataset_builders.build_gallery(transform=eval_transform),
     }
     data_loaders = {
         'train': torch.utils.data.DataLoader(
@@ -82,7 +68,7 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
             num_workers=workers),
     }
 
-    model = ResNet(34)
+    model = ResNet(18)
     model.to(DEVICE)
 
     optimizer = build_optimizer(model.parameters(), config)
@@ -200,6 +186,58 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
         # if metrics['wer'] < best_score:
         #     best_score = metrics['wer']
         #     save_model(model_to_save, mkdir(os.path.join(experiment_path, 'best')))
+
+
+def build_dataset_builder(config, dataset_path):
+    if config.dataset == 'vric':
+        return dataset_builders.vric.DatasetBuilder(dataset_path)
+    elif config.dataset == 'market1501':
+        return dataset_builders.market1501.DatasetBuilder(dataset_path)
+    elif config.dataset == 'lfw':
+        return dataset_builders.lfw.DatasetBuilder(dataset_path)
+    else:
+        raise AssertionError('invalid config.dataset {}'.format(config.dataset))
+
+
+def build_transforms(config):
+    if config.dataset == 'vric':
+        eval_transform = T.Resize((66, 104))
+        train_transform = T.Compose([
+            eval_transform,
+            T.RandomHorizontalFlip(),
+        ])
+    elif config.dataset == 'market1501':
+        eval_transform = CheckSize((128, 64))
+        train_transform = T.Compose([
+            eval_transform,
+            T.RandomHorizontalFlip(),
+        ])
+    elif config.dataset == 'lfw':
+        eval_transform = T.Compose([
+            CheckSize((250, 250)),
+            T.CenterCrop((128, 128)),
+        ])
+        train_transform = eval_transform
+    else:
+        raise AssertionError('invalid config.dataset {}'.format(config.dataset))
+
+    train_transform = T.Compose([
+        ApplyTo('image', T.Compose([
+            train_transform,
+            T.ColorJitter(0.1, 0.1, 0.1),
+            T.ToTensor(),
+        ])),
+        Extract(['image', 'id'])
+    ])
+    eval_transform = T.Compose([
+        ApplyTo('image', T.Compose([
+            eval_transform,
+            T.ToTensor(),
+        ])),
+        Extract(['image', 'id'])
+    ])
+
+    return train_transform, eval_transform
 
 
 def build_optimizer(parameters, config):

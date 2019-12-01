@@ -50,46 +50,23 @@ class DatasetBuilder(object):
 
 
 def load_data(path):
-    train = load_split(os.path.join(path, 'peopleDevTrain.txt'))
-    test = load_split(os.path.join(path, 'peopleDevTest.txt'))
-
-    train['path'] = path
-    test['path'] = path
-
-    train, = flatten_and_split(train, 1)
-    query, gallery = flatten_and_split(test, 2)
+    train = load_subset(path, 'train')
+    query = load_subset(path, 'probe')
+    gallery = load_subset(path, 'gallery')
 
     encode_category([train], 'id')
     encode_category([query, gallery], 'id')
+    encode_category([train, query, gallery], 'cam')
 
     return train, query, gallery
 
 
-def load_split(path):
-    with open(path) as f:
-        next(f)
-        data = pd.read_csv(f, sep='\s+', names=['id', 'num_images'])
-        data = data[data['num_images'] > 1]
+def load_subset(root, subset):
+    data = pd.read_csv(
+        os.path.join(root, 'vric_{}.txt'.format(subset)),
+        sep='\s+',
+        names=['path', 'id', 'cam'])
+    data['path'] = data['path'].apply(lambda x: os.path.join(root, '{}_images'.format(subset), x))
+    data.index = range(len(data))
 
     return data
-
-
-def flatten_and_split(data, num_splits):
-    splits = [[] for _ in range(num_splits)]
-
-    for _, row in data.iterrows():
-        group = pd.DataFrame({
-            'path': [
-                os.path.join(row['path'], row['id'], '{}_{:04}.jpg'.format(row['id'], i + 1))
-                for i in range(row['num_images'])],
-        })
-        group['id'] = row['id']
-
-        for i, split in enumerate(splits):
-            split.append(group.iloc[i::num_splits])
-
-    splits = [pd.concat(split) for split in splits]
-    for split in splits:
-        split.index = range(len(split))
-
-    return splits
