@@ -4,11 +4,18 @@
     "model": 34,
     "dataset": "lfw",
     "train": {
-        "sampler": "random",
+        "sampler": {
+            "type": "random_identity",
+            "random_identity": {
+                "fill_with": "instance"
+            }
+        },
         "batch_size": 32,
         "loss": {
-            "cross_entropy": {},
-            "triplet": null
+            "cross_entropy": null,
+            "triplet": {
+                "margin": 1.0
+            }
         },
         "opt": {
             "type": "adam",

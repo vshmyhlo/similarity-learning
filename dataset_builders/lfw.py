@@ -77,6 +77,9 @@ def flatten_and_split(data, num_splits):
     splits = [[] for _ in range(num_splits)]
 
     for _, row in data.iterrows():
+        if row['num_images'] < num_splits:
+            continue
+       
         group = pd.DataFrame({
             'path': [
                 os.path.join(row['path'], row['id'], '{}_{:04}.jpg'.format(row['id'], i + 1))

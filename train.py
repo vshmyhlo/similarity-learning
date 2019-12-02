@@ -30,6 +30,7 @@ from utils import visualize_ranks, cmc_curve_plot, distance_plot
 # TODO: learn class centers with triplet loss
 # TODO: force vectors to be orthogonal
 # TODO: loss computed on eval doesn't use sampler
+# TODO: rename num_identities
 # TODO: drop or not drop single instance samples
 
 
@@ -57,24 +58,11 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
         'gallery': dataset_builders.build_gallery(transform=eval_transform),
     }
 
-    def build_batch_sampler(dataset, batch_size, drop_last):
-        if config.train.sampler == 'random':
-            return torch.utils.data.BatchSampler(
-                torch.utils.data.RandomSampler(dataset),
-                batch_size=batch_size,
-                drop_last=drop_last)
-        elif config.train.sampler == 'random_identity':
-            return RandomIdentityBatchSampler(
-                dataset.ids,
-                batch_size=batch_size,
-                drop_last=drop_last)
-        else:
-            raise AssertionError('invalid config.train.sampler {}'.format(config.train.sampler))
-
     data_loaders = {
         'train': torch.utils.data.DataLoader(
             datasets['train'],
-            batch_sampler=build_batch_sampler(datasets['train'], config.train.batch_size, drop_last=True),
+            batch_sampler=build_batch_sampler(
+                datasets['train'], config.train.batch_size, drop_last=True, config=config),
             num_workers=workers),
         'query': torch.utils.data.DataLoader(
             datasets['query'],
@@ -104,7 +92,6 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
 
     train_writer = SummaryWriter(os.path.join(experiment_path, 'train'))
     eval_writer = SummaryWriter(os.path.join(experiment_path, 'eval'))
-    # best_score = 0
 
     for epoch in range(start_epoch, config.epochs):
         if epoch % 10 == 0:
@@ -209,9 +196,6 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
             del images, features, gallery_images, gallery_features
 
         saver.save(os.path.join(experiment_path, 'checkpoint.pth'), epoch=epoch + 1)
-        # if metrics['wer'] < best_score:
-        #     best_score = metrics['wer']
-        #     save_model(model_to_save, mkdir(os.path.join(experiment_path, 'best')))
 
 
 def build_dataset_builder(config, dataset_path):
@@ -241,9 +225,12 @@ def build_transforms(config):
     elif config.dataset == 'lfw':
         eval_transform = T.Compose([
             CheckSize((250, 250)),
-            T.CenterCrop((128, 128)),
+            T.CenterCrop((112, 112)),
         ])
-        train_transform = eval_transform
+        train_transform = T.Compose([
+            eval_transform,
+            T.RandomHorizontalFlip(),
+        ])
     else:
         raise AssertionError('invalid config.dataset {}'.format(config.dataset))
 
@@ -281,6 +268,22 @@ def build_scheduler(optimizer, epoch_size, config):
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epoch_size * config.epochs)
 
     return scheduler
+
+
+def build_batch_sampler(dataset, batch_size, drop_last, config):
+    if config.train.sampler.type == 'random':
+        return torch.utils.data.BatchSampler(
+            torch.utils.data.RandomSampler(dataset),
+            batch_size=batch_size,
+            drop_last=drop_last)
+    elif config.train.sampler.type == 'random_identity':
+        return RandomIdentityBatchSampler(
+            dataset.ids,
+            batch_size=batch_size,
+            fill_with=config.train.sampler.random_identity.fill_with,
+            drop_last=drop_last)
+    else:
+        raise AssertionError('invalid config.train.sampler {}'.format(config.train.sampler.type))
 
 
 def compute_loss(features, logits, ids, config):

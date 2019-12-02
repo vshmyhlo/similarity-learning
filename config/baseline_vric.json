@@ -2,7 +2,7 @@
     "seed": 42,
     "epochs": 30,
     "model": 34,
-    "dataset": "market1501",
+    "dataset": "vric",
     "train": {
         "sampler": {
             "type": "random_identity",
