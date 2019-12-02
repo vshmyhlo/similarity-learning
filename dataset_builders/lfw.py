@@ -69,7 +69,6 @@ def load_subset(path):
     with open(path) as f:
         next(f)
         data = pd.read_csv(f, sep='\s+', names=['id', 'num_images'])
-        data = data[data['num_images'] > 1]
 
     return data
 

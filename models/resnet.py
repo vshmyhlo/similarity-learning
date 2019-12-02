@@ -3,7 +3,7 @@ import torchvision.models
 
 
 class ResNet(nn.Module):
-    def __init__(self, type):
+    def __init__(self, type, num_classes):
         super().__init__()
 
         if type == 18:
@@ -15,6 +15,7 @@ class ResNet(nn.Module):
 
         self.model.avgpool = nn.AdaptiveAvgPool2d(1)
         self.output = nn.Linear(512, 256)
+        self.logits = nn.Linear(256, num_classes)
 
     def forward(self, input):
         input = self.model.conv1(input)
@@ -32,5 +33,6 @@ class ResNet(nn.Module):
         # input = self.model.fc(input)
 
         input = self.output(input)
+        logits = self.logits(input)
 
-        return input
+        return input, logits

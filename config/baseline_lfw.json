@@ -1,0 +1,20 @@
+{
+    "seed": 42,
+    "epochs": 30,
+    "model": 34,
+    "dataset": "lfw",
+    "train": {
+        "batch_size": 32,
+        "loss": {
+            "cross_entropy": {},
+            "triplet": null
+        },
+        "opt": {
+            "type": "adam",
+            "lr": 1e-4
+        }
+    },
+    "eval": {
+        "batch_size": 32
+    }
+}

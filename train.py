@@ -4,6 +4,7 @@ import os
 
 import click
 import numpy as np
+import torch.nn.functional as F
 import torch.utils.data
 import torchvision.transforms as T
 from all_the_tools.config import Config
@@ -29,6 +30,7 @@ from utils import visualize_ranks, cmc_curve_plot, distance_plot
 # TODO: learn class centers with triplet loss
 # TODO: force vectors to be orthogonal
 # TODO: loss computed on eval doesn't use sampler
+# TODO: drop or not drop single instance samples
 
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
@@ -54,10 +56,17 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
         'query': dataset_builders.build_query(transform=eval_transform),
         'gallery': dataset_builders.build_gallery(transform=eval_transform),
     }
+    batch_sampler = RandomIdentityBatchSampler(
+        datasets['train'].ids,
+        batch_size=config.train.batch_size)
+    # batch_sampler = torch.utils.data.BatchSampler(
+    #     torch.utils.data.RandomSampler(datasets['train']),
+    #     batch_size=config.train.batch_size,
+    #     drop_last=True)
     data_loaders = {
         'train': torch.utils.data.DataLoader(
             datasets['train'],
-            batch_sampler=RandomIdentityBatchSampler(datasets['train'].ids, config.train.batch_size),
+            batch_sampler=batch_sampler,
             num_workers=workers),
         'query': torch.utils.data.DataLoader(
             datasets['query'],
@@ -69,7 +78,7 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
             num_workers=workers),
     }
 
-    model = ResNet(config.model)
+    model = ResNet(config.model, datasets['train'].ids.nunique())
     model.to(DEVICE)
 
     optimizer = build_optimizer(model.parameters(), config)
@@ -104,9 +113,9 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
         for images, ids in tqdm(data_loaders['train'], desc='epoch {} train'.format(epoch), smoothing=0.01):
             images, ids = images.to(DEVICE), ids.to(DEVICE)
 
-            features = model(images)
+            features, logits = model(images)
 
-            loss = compute_loss(features, ids)
+            loss = compute_loss(features, logits, ids, config=config)
             metrics['loss'].update(loss.data.cpu().numpy())
 
             lr = np.squeeze(scheduler.get_lr())
@@ -128,7 +137,7 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
         # evaluation
 
         metrics = {
-            'loss': Mean(),
+            # 'loss': Mean(),
             'mAP': Mean(),
             'cmc': Mean(0),
             'rank/1': Mean(),
@@ -146,10 +155,10 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
             for images, ids in tqdm(data_loaders['query'], desc='epoch {} eval'.format(epoch), smoothing=0.01):
                 images, ids = images.to(DEVICE), ids.to(DEVICE)
 
-                features = model(images)
+                features, logits = model(images)
 
-                loss = compute_loss(features, ids)
-                metrics['loss'].update(loss.data.cpu().numpy())
+                # loss = compute_loss(features, logits, ids, config=config)
+                # metrics['loss'].update(loss.data.cpu().numpy())
 
                 distances = pairwise_distances(features, gallery_features)
                 metric, (distances, sort_indices, eq) = compute_metric(distances, ids, gallery_ids)
@@ -266,8 +275,13 @@ def build_scheduler(optimizer, epoch_size, config):
     return scheduler
 
 
-def compute_loss(features, ids):
-    loss = triplet_loss(features, ids)
+def compute_loss(features, logits, ids, config):
+    loss = torch.ones(features.size(0), dtype=features.dtype, device=features.device)
+
+    if config.train.loss.cross_entropy is not None:
+        loss += F.cross_entropy(logits, ids, reduction='none')
+    if config.train.loss.triplet is not None:
+        loss += triplet_loss(features, ids, margin=config.train.loss.triplet.margin)
 
     return loss
 
@@ -295,7 +309,7 @@ def collect_features(data_loader, model):
     all_features = []
     for images, ids in tqdm(data_loader, desc='collecting features'):
         images, ids = images.to(DEVICE), ids.to(DEVICE)
-        features = model(images)
+        features, _ = model(images)
 
         all_images.append(images)
         all_ids.append(ids)
