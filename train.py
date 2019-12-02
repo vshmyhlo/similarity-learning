@@ -56,17 +56,25 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
         'query': dataset_builders.build_query(transform=eval_transform),
         'gallery': dataset_builders.build_gallery(transform=eval_transform),
     }
-    batch_sampler = RandomIdentityBatchSampler(
-        datasets['train'].ids,
-        batch_size=config.train.batch_size)
-    # batch_sampler = torch.utils.data.BatchSampler(
-    #     torch.utils.data.RandomSampler(datasets['train']),
-    #     batch_size=config.train.batch_size,
-    #     drop_last=True)
+
+    def build_batch_sampler(dataset, batch_size, drop_last):
+        if config.train.sampler == 'random':
+            return torch.utils.data.BatchSampler(
+                torch.utils.data.RandomSampler(dataset),
+                batch_size=batch_size,
+                drop_last=drop_last)
+        elif config.train.sampler == 'random_identity':
+            return RandomIdentityBatchSampler(
+                dataset.ids,
+                batch_size=batch_size,
+                drop_last=drop_last)
+        else:
+            raise AssertionError('invalid config.train.sampler {}'.format(config.train.sampler))
+
     data_loaders = {
         'train': torch.utils.data.DataLoader(
             datasets['train'],
-            batch_sampler=batch_sampler,
+            batch_sampler=build_batch_sampler(datasets['train'], config.train.batch_size, drop_last=True),
             num_workers=workers),
         'query': torch.utils.data.DataLoader(
             datasets['query'],

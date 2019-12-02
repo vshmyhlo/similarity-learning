@@ -4,6 +4,7 @@
     "model": 34,
     "dataset": "market1501",
     "train": {
+        "sampler": "random_identity",
         "batch_size": 32,
         "loss": {
             "cross_entropy": null,

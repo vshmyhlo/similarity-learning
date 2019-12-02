@@ -4,6 +4,7 @@
     "model": 34,
     "dataset": "lfw",
     "train": {
+        "sampler": "random",
         "batch_size": 32,
         "loss": {
             "cross_entropy": {},
