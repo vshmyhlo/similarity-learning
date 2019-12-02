@@ -214,31 +214,23 @@ def build_dataset_builder(config, dataset_path):
 def build_transforms(config):
     if config.dataset == 'vric':
         eval_transform = T.Resize((66, 104))
-        train_transform = T.Compose([
-            eval_transform,
-            T.RandomHorizontalFlip(),
-        ])
+        train_transform = eval_transform
     elif config.dataset == 'market1501':
         eval_transform = CheckSize((128, 64))
-        train_transform = T.Compose([
-            eval_transform,
-            T.RandomHorizontalFlip(),
-        ])
+        train_transform = eval_transform
     elif config.dataset == 'lfw':
         eval_transform = T.Compose([
             CheckSize((250, 250)),
             T.CenterCrop((112, 112)),
         ])
-        train_transform = T.Compose([
-            eval_transform,
-            T.RandomHorizontalFlip(),
-        ])
+        train_transform = eval_transform
     else:
         raise AssertionError('invalid config.dataset {}'.format(config.dataset))
 
     train_transform = T.Compose([
         ApplyTo('image', T.Compose([
             train_transform,
+            T.RandomHorizontalFlip(),
             T.ColorJitter(0.1, 0.1, 0.1),
             T.ToTensor(),
         ])),
