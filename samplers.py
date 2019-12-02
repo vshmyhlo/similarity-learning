@@ -31,10 +31,18 @@ class RandomIdentityBatchSampler(torch.utils.data.Sampler):
             return math.ceil(num_batches)
 
     def __iter__(self):
+        id_to_indices = [[] for _ in range(self.data.max() + 1)]
+        for index, id in self.data.iteritems():
+            id_to_indices[id].append(index)
+
+        for indices in id_to_indices:
+            random.shuffle(indices)
+        random.shuffle(id_to_indices)
+
         if self.fill_with == 'instance':
-            batches = self.filled_with_instance()
+            batches = self.filled_with_instance(id_to_indices)
         elif self.fill_with == 'identity':
-            batches = self.filled_with_identity()
+            batches = self.filled_with_identity(id_to_indices)
         else:
             raise AssertionError('invalid fill_with {}'.format(self.fill_with))
 
@@ -46,15 +54,7 @@ class RandomIdentityBatchSampler(torch.utils.data.Sampler):
 
         return iter(batches)
 
-    def filled_with_instance(self):
-        id_to_indices = [[] for _ in range(self.data.max() + 1)]
-        for index, id in self.data.iteritems():
-            id_to_indices[id].append(index)
-
-        for indices in id_to_indices:
-            random.shuffle(indices)
-        random.shuffle(id_to_indices)
-
+    def filled_with_instance(self, id_to_indices):
         batches = []
         batch = []
         for indices in id_to_indices:
@@ -70,15 +70,7 @@ class RandomIdentityBatchSampler(torch.utils.data.Sampler):
 
         return batches
 
-    def filled_with_identity(self):
-        id_to_indices = [[] for _ in range(self.data.max() + 1)]
-        for index, id in self.data.iteritems():
-            id_to_indices[id].append(index)
-
-        for indices in id_to_indices:
-            random.shuffle(indices)
-        random.shuffle(id_to_indices)
-
+    def filled_with_identity(self, id_to_indices):
         batches = []
         batch = []
         while len(id_to_indices) > 0:
