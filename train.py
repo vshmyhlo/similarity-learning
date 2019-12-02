@@ -32,6 +32,8 @@ from utils import visualize_ranks, cmc_curve_plot, distance_plot
 # TODO: loss computed on eval doesn't use sampler
 # TODO: rename num_identities
 # TODO: drop or not drop single instance samples
+# TODO: doublecheck samplers
+# TODO: fill with both
 
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
@@ -280,8 +282,8 @@ def build_batch_sampler(dataset, batch_size, drop_last, config):
         return RandomIdentityBatchSampler(
             dataset.ids,
             batch_size=batch_size,
-            fill_with=config.train.sampler.random_identity.fill_with,
-            drop_last=drop_last)
+            drop_last=drop_last,
+            balance_identities=config.train.sampler.random_identity.balance_identities)
     else:
         raise AssertionError('invalid config.train.sampler {}'.format(config.train.sampler.type))
 
