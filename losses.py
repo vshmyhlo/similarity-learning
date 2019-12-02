@@ -42,6 +42,17 @@ def pairwise_distances(a, b):
     return torch.norm(delta, 2, 2)
 
 
+# def pairwise_distances(a, b):
+#     a = F.normalize(a, 2, 1)
+#     b = F.normalize(b, 2, 1)
+#
+#     dot = (a.unsqueeze(1) * b.unsqueeze(0)).sum(2)
+#     # dist = torch.acos(dot * (1 - 1e-7)) / math.pi
+#     dist = dot
+#
+#     return dist
+
+
 def build_pos_mask(target):
     indices_equal = torch.eye(target.size(0), dtype=torch.bool, device=target.device)
     index_not_eq = ~indices_equal

@@ -79,7 +79,7 @@ def cmc_curve_plot(cmc):
 def distance_plot(distances, eq):
     fig = plt.figure()
 
-    kwargs = dict(histtype='stepfilled', alpha=0.3, density=True, bins=40, ec='k')
+    kwargs = dict(histtype='stepfilled', alpha=0.5, density=True, bins=50, ec='k')
     plt.hist(distances[eq].data.cpu().numpy(), label='pos', **kwargs)
     plt.hist(distances[~eq].data.cpu().numpy(), label='neg', **kwargs)
     plt.legend()

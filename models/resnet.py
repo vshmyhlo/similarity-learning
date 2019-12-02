@@ -14,6 +14,7 @@ class ResNet(nn.Module):
             fail
 
         self.model.avgpool = nn.AdaptiveAvgPool2d(1)
+        self.output = nn.Linear(512, 256)
 
     def forward(self, input):
         input = self.model.conv1(input)
@@ -29,5 +30,7 @@ class ResNet(nn.Module):
         input = self.model.avgpool(input)
         input = input.view(input.size(0), input.size(1))
         # input = self.model.fc(input)
+
+        input = self.output(input)
 
         return input

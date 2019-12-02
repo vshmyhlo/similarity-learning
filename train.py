@@ -24,11 +24,11 @@ from transforms import CheckSize
 from utils import visualize_ranks, cmc_curve_plot, distance_plot
 
 # TODO: remove logging
-# TODO: compute vric mean box
-# TODO: cmc rank larger K
 # TODO: spatial transformer network
 # TODO: leave identities with 2+ samples
 # TODO: learn class centers with triplet loss
+# TODO: force vectors to be orthogonal
+# TODO: loss computed on eval doesn't use sampler
 
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
@@ -69,7 +69,7 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
             num_workers=workers),
     }
 
-    model = ResNet(18)
+    model = ResNet(config.model)
     model.to(DEVICE)
 
     optimizer = build_optimizer(model.parameters(), config)
@@ -152,7 +152,7 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
                 metrics['loss'].update(loss.data.cpu().numpy())
 
                 distances = pairwise_distances(features, gallery_features)
-                metric, (sort_indices, eq) = compute_metric(distances, ids, gallery_ids)
+                metric, (distances, sort_indices, eq) = compute_metric(distances, ids, gallery_ids)
                 for k in metric:
                     metrics[k].update(metric[k].data.cpu().numpy())
 
@@ -266,14 +266,14 @@ def build_scheduler(optimizer, epoch_size, config):
     return scheduler
 
 
-def compute_loss(input, target):
-    loss = triplet_loss(input, target)
+def compute_loss(features, ids):
+    loss = triplet_loss(features, ids)
 
     return loss
 
 
 def compute_metric(distances, query_ids, gallery_ids):
-    sort_indices = distances.argsort(1)
+    distances, sort_indices = distances.sort(1)
     sorted_gallery_ids = gallery_ids[sort_indices]
     eq = query_ids.unsqueeze(1) == sorted_gallery_ids
 
@@ -286,7 +286,7 @@ def compute_metric(distances, query_ids, gallery_ids):
         'rank/20': rank_k(eq, 20),
     }
 
-    return metric, (sort_indices, eq)
+    return metric, (distances, sort_indices, eq)
 
 
 def collect_features(data_loader, model):
