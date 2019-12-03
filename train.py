@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import torch.utils.data
 import torchvision.transforms as T
 from all_the_tools.config import Config
-from all_the_tools.metrics import Mean
+from all_the_tools.metrics import Mean, Last
 from all_the_tools.torch.utils import Saver
 from all_the_tools.transforms import ApplyTo, Extract
 from tensorboardX import SummaryWriter
@@ -104,6 +104,7 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
 
         metrics = {
             'loss': Mean(),
+            'learning_rate': Last(),
         }
 
         model.train()
@@ -116,6 +117,7 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
             metrics['loss'].update(loss.data.cpu().numpy())
 
             lr = np.squeeze(scheduler.get_lr())
+            metrics['learning_rate'].update(lr)
 
             optimizer.zero_grad()
             loss.mean().backward()
@@ -128,7 +130,6 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
                 epoch, ', '.join('{}: {:.4f}'.format(k, metrics[k]) for k in metrics)))
             for k in metrics:
                 train_writer.add_scalar(k, metrics[k], global_step=epoch)
-            train_writer.add_scalar('learning_rate', lr, global_step=epoch)
 
         # ==============================================================================================================
         # evaluation
@@ -260,6 +261,7 @@ def build_optimizer(parameters, config):
 
 def build_scheduler(optimizer, epoch_size, config):
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epoch_size * config.epochs)
+    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, epoch_size * 10, 0.1)
 
     return scheduler
 
