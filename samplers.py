@@ -1,6 +1,7 @@
 import math
 import random
 
+import numpy as np
 import torch.utils
 
 
@@ -41,10 +42,7 @@ class RandomIdentityBatchSampler(torch.utils.data.Sampler):
             id_to_indices[id].append(index)
 
         if self.pad_instances:
-            import numpy as np
-            print(np.unique([len(x) for x in id_to_indices]))
             id_to_indices = [pad(indices) for indices in id_to_indices]
-            print(np.unique([len(x) for x in id_to_indices]))
 
         batches = []
         batch = []

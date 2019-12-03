@@ -70,7 +70,8 @@ def visualize_ranks(query_images, gallery_images, sort_indices, eq, k):
 def cmc_curve_plot(cmc):
     fig = plt.figure()
     plt.plot(np.arange(1, cmc.shape[0] + 1), cmc)
-    plt.xlim(0, cmc.shape[0] + 1)
+    plt.fill_between(np.arange(1, cmc.shape[0] + 1), 0, cmc, alpha=0.1)
+    plt.xlim(1, cmc.shape[0])
     plt.ylim(0, 1)
 
     return fig
