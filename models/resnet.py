@@ -50,19 +50,22 @@ class ArcFace(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, type, num_classes):
+    def __init__(self, model, num_classes):
         super().__init__()
 
-        if type == 18:
+        if model.type == 18:
             self.model = torchvision.models.resnet18(pretrained=True)
-        elif type == 34:
+        elif model.type == 34:
             self.model = torchvision.models.resnet34(pretrained=True)
         else:
             fail
 
         self.model.avgpool = nn.AdaptiveAvgPool2d(1)
-        self.output = nn.Linear(512, 256)
-        self.logits = nn.Linear(256, num_classes)
+        self.output = nn.Sequential(
+            nn.Dropout(0.2),
+            nn.Linear(512, model.embedding_size),
+            nn.BatchNorm1d(model.embedding_size))
+        self.logits = nn.Linear(model.embedding_size, num_classes)
 
     def forward(self, input, ids=None):
         input = self.model.conv1(input)
