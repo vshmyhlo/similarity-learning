@@ -30,11 +30,7 @@ from utils import visualize_ranks, cmc_curve_plot, distance_plot
 # TODO: learn class centers with triplet loss
 # TODO: force vectors to be orthogonal
 # TODO: loss computed on eval doesn't use sampler
-# TODO: rename num_identities
-# TODO: drop or not drop single instance samples
-# TODO: doublecheck samplers
-# TODO: fill with both
-
+# TODO: visualize embeddings using tensorboard
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
 
@@ -111,7 +107,7 @@ def main(experiment_path, dataset_path, config_path, restore_path, workers):
         for images, ids in tqdm(data_loaders['train'], desc='epoch {} train'.format(epoch), smoothing=0.01):
             images, ids = images.to(DEVICE), ids.to(DEVICE)
 
-            features, logits = model(images)
+            features, logits = model(images, ids)
 
             loss = compute_loss(features, logits, ids, config=config)
             metrics['loss'].update(loss.data.cpu().numpy())

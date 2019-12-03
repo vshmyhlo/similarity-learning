@@ -41,7 +41,9 @@ def visualize_ranks(query_images, gallery_images, sort_indices, eq, k):
 
         return images
 
+    not_exhausted = eq.float().flip(1).cumsum(1).flip(1) != 0
     eq = eq[:, :k]
+    not_exhausted = not_exhausted[:, :k]
     gallery_images = gallery_images[sort_indices[:, :k]]
 
     min_pixel = min(query_images.min(), gallery_images.min())
@@ -54,6 +56,11 @@ def visualize_ranks(query_images, gallery_images, sort_indices, eq, k):
         eq.view(*eq.size(), 1, 1, 1),
         add_border(gallery_images, (0, 1, 0)),
         add_border(gallery_images, (1, 0, 0)))
+
+    gallery_images = torch.where(
+        not_exhausted.view(*eq.size(), 1, 1, 1),
+        gallery_images,
+        gallery_images * 0.5)
 
     gallery_images = gallery_images.permute(0, 2, 3, 1, 4)
     b, c, h, n, w = gallery_images.size()
@@ -93,3 +100,7 @@ def encode_category(dfs, column):
     le.fit(pd.concat([df[column] for df in dfs]))
     for df in dfs:
         df[column] = le.transform(df[column])
+
+
+def one_hot(input, num_classes):
+    return torch.eye(num_classes, dtype=torch.float, device=input.device)[input]
