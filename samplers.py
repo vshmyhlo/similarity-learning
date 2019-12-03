@@ -5,7 +5,7 @@ import torch.utils
 
 
 class RandomIdentityBatchSampler(torch.utils.data.Sampler):
-    def __init__(self, data, batch_size, drop_last, num_instances=4, balance_identities=False):
+    def __init__(self, data, batch_size, drop_last, num_instances=4, pad_instances=False):
         super().__init__(data)
 
         assert batch_size % num_instances == 0
@@ -14,7 +14,7 @@ class RandomIdentityBatchSampler(torch.utils.data.Sampler):
         self.batch_size = batch_size
         self.drop_last = drop_last
         self.num_instances = num_instances
-        self.balance_identities = balance_identities
+        self.pad_instances = pad_instances
 
     def __len__(self):
         batches = self.build_batches()
@@ -27,12 +27,24 @@ class RandomIdentityBatchSampler(torch.utils.data.Sampler):
         return iter(batches)
 
     def build_batches(self):
+        def pad(indices):
+            target_len = math.ceil(len(indices) / self.num_instances) * self.num_instances
+            pad_len = target_len - len(indices)
+            padding = np.random.choice(
+                indices,
+                pad_len,
+                replace=pad_len > len(indices)).tolist()
+            return indices + padding
+
         id_to_indices = [[] for _ in range(self.data.max() + 1)]
         for index, id in self.data.iteritems():
             id_to_indices[id].append(index)
 
-        if self.balance_identities:
-            id_to_indices = self.balance(id_to_indices)
+        if self.pad_instances:
+            import numpy as np
+            print(np.unique([len(x) for x in id_to_indices]))
+            id_to_indices = [pad(indices) for indices in id_to_indices]
+            print(np.unique([len(x) for x in id_to_indices]))
 
         batches = []
         batch = []
@@ -42,8 +54,8 @@ class RandomIdentityBatchSampler(torch.utils.data.Sampler):
                 random.shuffle(indices)
 
             for indices in id_to_indices:
-                num_instances = min(self.num_instances, len(indices))
-                for _ in range(num_instances):
+                assert len(indices) % self.num_instances == 0
+                for _ in range(self.num_instances):
                     batch.append(indices.pop())
 
                     if len(batch) == self.batch_size:
@@ -60,12 +72,3 @@ class RandomIdentityBatchSampler(torch.utils.data.Sampler):
         random.shuffle(batches)
 
         return batches
-
-    def balance(self, id_to_indices):
-        instances_per_identity = round(len(self.data) / len(id_to_indices))
-        instances_per_identity = math.ceil(instances_per_identity / self.num_instances) * self.num_instances
-        id_to_indices = [
-            (indices * math.ceil(instances_per_identity / len(indices)))[:instances_per_identity]
-            for indices in id_to_indices]
-
-        return id_to_indices

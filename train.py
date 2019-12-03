@@ -275,7 +275,7 @@ def build_batch_sampler(dataset, batch_size, drop_last, config):
             dataset.ids,
             batch_size=batch_size,
             drop_last=drop_last,
-            balance_identities=config.train.sampler.random_identity.balance_identities)
+            pad_instances=config.train.sampler.random_identity.pad_instances)
     else:
         raise AssertionError('invalid config.train.sampler {}'.format(config.train.sampler.type))
 

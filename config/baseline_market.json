@@ -7,7 +7,7 @@
         "sampler": {
             "type": "random_identity",
             "random_identity": {
-                "balance_identities": true
+                "pad_instances": true
             }
         },
         "batch_size": 32,
@@ -26,6 +26,10 @@
         "batch_size": 32
     }
 }
+
+
+
+
 
 
 
