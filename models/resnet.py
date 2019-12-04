@@ -58,13 +58,14 @@ class ResNet(nn.Module):
         elif model.type == 34:
             self.model = torchvision.models.resnet34(pretrained=True)
         else:
-            fail
+            raise AssertionError('invalid model.type {}'.format(model.type))
 
         self.model.avgpool = nn.AdaptiveAvgPool2d(1)
         self.output = nn.Sequential(
-            nn.Dropout(0.2),
+            # nn.Dropout(0.2),
             nn.Linear(512, model.embedding_size),
-            nn.BatchNorm1d(model.embedding_size))
+            # nn.BatchNorm1d(model.embedding_size),
+        )
         self.logits = nn.Linear(model.embedding_size, num_classes)
 
     def forward(self, input, ids=None):

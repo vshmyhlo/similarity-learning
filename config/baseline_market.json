@@ -1,7 +1,10 @@
 {
     "seed": 42,
     "epochs": 30,
-    "model": 34,
+    "model": {
+        "type": 34,
+        "embedding_size": 256
+    },
     "dataset": "market1501",
     "train": {
         "sampler": {
