@@ -214,7 +214,11 @@ def build_transforms(config):
         train_transform = eval_transform
     elif config.dataset == 'market1501':
         eval_transform = CheckSize((128, 64))
-        train_transform = eval_transform
+        train_transform = T.Compose([
+            eval_transform,
+            T.Resize((144, 72)),
+            T.RandomCrop((128, 64)),
+        ])
     elif config.dataset == 'lfw':
         eval_transform = T.Compose([
             CheckSize((250, 250)),
